@@ -3,5 +3,11 @@ project_id = "internal-location-tracker"
 [functions.locations-batch]
 verify_jwt = true
 
+[functions.admin-locations]
+verify_jwt = true
+
+[functions.admin-delete-locations]
+verify_jwt = true
+
 [functions.sync-google-sheet]
 verify_jwt = true

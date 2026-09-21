@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchAdminLocations } from "@/lib/api";
+import { fetchAdminLocations, deleteAdminLocations, type DeleteLocationsMode } from "@/lib/api";
 import type { AdminDevice, AdminLocation } from "@/lib/types";
 
 const LocationMap = dynamic(() => import("@/components/LocationMap"), {
@@ -28,6 +28,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [deleteMode, setDeleteMode] = useState<DeleteLocationsMode>("time_window");
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,6 +72,49 @@ export default function Dashboard() {
     () => locations.find((item) => item.id === selectedId) ?? null,
     [locations, selectedId],
   );
+
+  async function runDelete(): Promise<void> {
+    if (!deviceId) {
+      setDeleteMessage("Select a device first.");
+      return;
+    }
+    if (!deletePassword.trim()) {
+      setDeleteMessage("Enter the delete password.");
+      return;
+    }
+
+    const label =
+      deleteMode === "all"
+        ? "ALL records for this device"
+        : deleteMode === "older_than_1h"
+          ? "records older than 1 hour"
+          : hours === "0"
+            ? "ALL records for this device (time window = All)"
+            : `records in the last ${hours} hour(s)`;
+
+    const confirmed = window.confirm(
+      `Delete ${label}?\n\nThis cannot be undone.`,
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setDeleteMessage(null);
+    try {
+      const result = await deleteAdminLocations({
+        password: deletePassword.trim(),
+        deviceId,
+        mode: deleteMode,
+        hours: Number(hours),
+      });
+      setDeleteMessage(`Deleted ${result.deleted} row(s).`);
+      setDeletePassword("");
+      await load();
+    } catch (err) {
+      setDeleteMessage(err instanceof Error ? err.message : String(err));
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
@@ -128,6 +175,51 @@ export default function Dashboard() {
               </select>
             </label>
           </section>
+
+          {deviceId ? (
+            <section className="rounded-2xl border border-red-200 bg-red-50 p-4 shadow-sm">
+              <h2 className="mb-2 font-semibold text-red-900">Delete records</h2>
+              <p className="mb-3 text-xs text-red-700">
+                Requires password. Deletes from Supabase for the selected device only.
+              </p>
+              <label className="mb-3 block text-sm">
+                <span className="mb-1 block text-slate-600">What to delete</span>
+                <select
+                  className="w-full rounded-xl border border-red-200 bg-white px-3 py-2"
+                  value={deleteMode}
+                  onChange={(event) =>
+                    setDeleteMode(event.target.value as DeleteLocationsMode)
+                  }
+                >
+                  <option value="time_window">Match time window above</option>
+                  <option value="older_than_1h">Older than 1 hour</option>
+                  <option value="all">All records for this device</option>
+                </select>
+              </label>
+              <label className="mb-3 block text-sm">
+                <span className="mb-1 block text-slate-600">Password</span>
+                <input
+                  type="password"
+                  className="w-full rounded-xl border border-red-200 bg-white px-3 py-2"
+                  value={deletePassword}
+                  onChange={(event) => setDeletePassword(event.target.value)}
+                  placeholder="Delete password"
+                  autoComplete="off"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={deleting}
+                onClick={() => void runDelete()}
+                className="w-full rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+              >
+                {deleting ? "Deleting…" : "Delete from Supabase"}
+              </button>
+              {deleteMessage ? (
+                <p className="mt-3 text-sm text-red-800">{deleteMessage}</p>
+              ) : null}
+            </section>
+          ) : null}
 
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h2 className="mb-2 font-semibold">Summary</h2>
