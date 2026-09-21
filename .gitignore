@@ -2,6 +2,7 @@
 
 # dependencies
 node_modules/
+admin/node_modules/
 
 # Expo
 .expo/
@@ -9,8 +10,12 @@ dist/
 web-build/
 expo-env.d.ts
 
-# Native
+# Native build outputs (keep android/ project sources, skip huge artifacts)
 .kotlin/
+android/.gradle/
+android/app/build/
+android/build/
+android/app/.cxx/
 *.orig.*
 *.jks
 *.p8
@@ -30,12 +35,16 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files / secrets
+.env
 .env*.local
+admin/.env.local
+google-service-account.json
+**/service-account*.json
+
+# Next.js
+admin/.next/
 
 # typescript
 *.tsbuildinfo
-
-# generated native folders
-/ios
-/android
+supabase/.temp/

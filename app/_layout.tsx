@@ -1,56 +1,57 @@
-import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect, useState } from 'react';
+import { View } from 'react-native';
 
-import { useColorScheme } from '@/components/useColorScheme';
+import { colors } from '@/components/theme';
+import { bootstrapApp } from '@/services/bootstrap';
 
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from 'expo-router';
+export { ErrorBoundary } from 'expo-router';
 
-export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
-};
-
-// Prevent the splash screen from auto-hiding before asset loading is complete.
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
-
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
-  useEffect(() => {
-    if (error) throw error;
-  }, [error]);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
-    }
-  }, [loaded]);
+    let cancelled = false;
+    void bootstrapApp()
+      .catch(() => undefined)
+      .finally(async () => {
+        if (!cancelled) {
+          setReady(true);
+          await SplashScreen.hideAsync().catch(() => undefined);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
-  if (!loaded) {
-    return null;
+  if (!ready) {
+    return <View style={{ flex: 1, backgroundColor: colors.bg }} />;
   }
 
-  return <RootLayoutNav />;
-}
-
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+    <>
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{
+          headerStyle: { backgroundColor: colors.bg },
+          headerTintColor: colors.text,
+          headerTitleStyle: { color: colors.text, fontWeight: '700' },
+          headerShadowVisible: false,
+          contentStyle: { backgroundColor: colors.bg },
+        }}
+      >
+        <Stack.Screen name="index" options={{ title: 'Home' }} />
+        <Stack.Screen name="permissions" options={{ title: 'Get started' }} />
+        <Stack.Screen name="history" options={{ title: 'History' }} />
+        <Stack.Screen name="settings" options={{ title: 'Settings' }} />
+        <Stack.Screen name="record" options={{ title: 'Audio' }} />
+        <Stack.Screen name="debug" options={{ title: 'Debug' }} />
       </Stack>
-    </ThemeProvider>
+    </>
   );
 }
