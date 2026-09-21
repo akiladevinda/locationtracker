@@ -4,6 +4,19 @@ Internal web map for the Android Location Tracker (Leaflet + OpenStreetMap, free
 
 ---
 
+## Fix if you see raw `index.js` code on Vercel
+
+That means the project Root Directory is wrong (repo root instead of `admin`).
+
+1. Open your project on [Vercel](https://vercel.com/dashboard) (e.g. **locationtracker-sage**)
+2. **Settings → General → Root Directory → Edit** → set to **`admin`** → Save
+3. **Settings → Environment Variables** → add the 3 vars below if missing
+4. **Deployments → … → Redeploy**
+
+Then https://locationtracker-sage.vercel.app/ should show the map dashboard.
+
+---
+
 ## What you need ready
 
 1. A [Vercel](https://vercel.com) account (GitHub login is fine)
