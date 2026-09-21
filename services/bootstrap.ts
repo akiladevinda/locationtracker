@@ -60,6 +60,8 @@ export async function bootstrapApp(): Promise<void> {
   }
 
   syncService.start();
+  // Always flush pending uploads as soon as the app is usable.
+  void syncService.syncNow().catch(() => undefined);
 }
 
 export function teardownApp(): void {
