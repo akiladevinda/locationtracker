@@ -1,16 +1,46 @@
 import type { AdminLocationsResponse } from "@/lib/types";
 
+const DEFAULT_SUPABASE_URL = "https://qnbcgvnujaasvzjjawtw.supabase.co";
+const DEFAULT_ADMIN_API_URL = `${DEFAULT_SUPABASE_URL}/functions/v1/admin-locations`;
+
+function resolveAdminApiUrl(): string {
+  const fromEnv = process.env.NEXT_PUBLIC_ADMIN_API_URL?.trim();
+  if (fromEnv) return fromEnv;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || DEFAULT_SUPABASE_URL;
+  if (supabaseUrl.startsWith("http")) {
+    return `${supabaseUrl.replace(/\/$/, "")}/functions/v1/admin-locations`;
+  }
+
+  return DEFAULT_ADMIN_API_URL;
+}
+
 export async function fetchAdminLocations(params?: {
   limit?: number;
   deviceId?: string;
   since?: string;
 }): Promise<AdminLocationsResponse> {
-  const base =
-    process.env.NEXT_PUBLIC_ADMIN_API_URL ??
-    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/admin-locations`;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+  const base = resolveAdminApiUrl();
+  const key =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
+    "";
 
-  const url = new URL(base);
+  let url: URL;
+  try {
+    url = new URL(base);
+  } catch {
+    throw new Error(
+      "Admin API URL is invalid. In Vercel → Settings → Environment Variables, set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then Redeploy.",
+    );
+  }
+
+  if (!key) {
+    throw new Error(
+      "Missing NEXT_PUBLIC_SUPABASE_ANON_KEY. Add it in Vercel → Settings → Environment Variables, then Redeploy.",
+    );
+  }
+
   url.searchParams.set("limit", String(params?.limit ?? 500));
   if (params?.deviceId) {
     url.searchParams.set("deviceId", params.deviceId);
