@@ -24,7 +24,8 @@ export async function fetchAdminLocations(params?: {
   const key =
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ||
-    "";
+    // Public client key (same as mobile EXPO_PUBLIC_*). Prefer setting on Vercel.
+    "sb_publishable_iovGuHM-USPLQ_D_S8LKbQ_fFNDFOMQ";
 
   let url: URL;
   try {
@@ -32,12 +33,6 @@ export async function fetchAdminLocations(params?: {
   } catch {
     throw new Error(
       "Admin API URL is invalid. In Vercel → Settings → Environment Variables, set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY, then Redeploy.",
-    );
-  }
-
-  if (!key) {
-    throw new Error(
-      "Missing NEXT_PUBLIC_SUPABASE_ANON_KEY. Add it in Vercel → Settings → Environment Variables, then Redeploy.",
     );
   }
 
