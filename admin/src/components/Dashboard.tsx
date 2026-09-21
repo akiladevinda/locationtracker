@@ -60,7 +60,7 @@ export default function Dashboard() {
     void load();
     const timer = setInterval(() => {
       void load();
-    }, 30000);
+    }, 60000);
     return () => clearInterval(timer);
   }, [load]);
 
@@ -79,7 +79,7 @@ export default function Dashboard() {
             </p>
             <h1 className="text-2xl font-bold sm:text-3xl">Location Tracker · Sri Lanka</h1>
             <p className="mt-1 text-sm text-slate-500">
-              Free OpenStreetMap · auto-refresh every 30s
+              Free OpenStreetMap · auto-refresh every 60s
               {updatedAt ? ` · updated ${updatedAt}` : ""}
             </p>
           </div>

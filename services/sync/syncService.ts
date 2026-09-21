@@ -26,17 +26,19 @@ export class SyncService {
   private autoSyncTimer: ReturnType<typeof setInterval> | null = null;
   private maxRetries = DEFAULT_MAX_SYNC_RETRIES;
   private loggedMissingBackend = false;
-  private lastAutoSyncAt = 0;
+  /** Last time a sync actually started (not merely attempted while already busy). */
+  private lastSyncStartedAt = 0;
 
   start(): void {
     void this.syncNow();
     if (this.autoSyncTimer) {
       clearInterval(this.autoSyncTimer);
     }
+    // Foreground / FGS JS timer — backup when the app process is warm.
     this.autoSyncTimer = setInterval(() => {
       void this.syncNow().catch(() => undefined);
     }, DEFAULT_AUTO_SYNC_INTERVAL_MS);
-    logger.info('auto sync every 30s enabled');
+    logger.info('auto sync every 60s enabled');
   }
 
   stop(): void {
@@ -50,13 +52,18 @@ export class SyncService {
     }
   }
 
-  /** Used from background GPS task — uploads at most once per 30s. */
+  /**
+   * Called from the background GPS task.
+   * This is the reliable path when the screen is off — JS setInterval alone is not enough.
+   */
   async syncIfDue(minIntervalMs = DEFAULT_AUTO_SYNC_INTERVAL_MS): Promise<void> {
-    const now = Date.now();
-    if (now - this.lastAutoSyncAt < minIntervalMs) {
+    if (this.syncing) {
       return;
     }
-    this.lastAutoSyncAt = now;
+    const now = Date.now();
+    if (now - this.lastSyncStartedAt < minIntervalMs) {
+      return;
+    }
     await this.syncNow();
   }
 
@@ -73,12 +80,23 @@ export class SyncService {
     }
 
     this.syncing = true;
-    this.lastAutoSyncAt = Date.now();
+    this.lastSyncStartedAt = Date.now();
     try {
       const backendReady = await isBackendUrlConfigured();
       if (backendReady) {
         this.loggedMissingBackend = false;
-        await this.syncLocations();
+        const uploaded = await this.syncLocations();
+        await this.syncFiles();
+        this.retryAttempt = 0;
+        try {
+          await setSettings([
+            { key: SETTING_KEYS.lastSyncAt, value: new Date().toISOString() },
+            { key: SETTING_KEYS.lastApiError, value: '' },
+          ]);
+        } catch {
+          // ignore DB contention after upload
+        }
+        logger.info('sync success', `uploaded=${uploaded}`);
       } else {
         try {
           await setSetting(
@@ -86,27 +104,15 @@ export class SyncService {
             'Backend URL is not configured. Add EXPO_PUBLIC_SUPABASE_URL in .env or set Backend URL in Settings.',
           );
         } catch {
-          // ignore DB contention while recording config warning
+          // ignore
         }
         if (!this.loggedMissingBackend) {
           this.loggedMissingBackend = true;
           logger.warn(
-            'Location sync skipped until EXPO_PUBLIC_SUPABASE_ANON_KEY is set in .env (API Keys in Supabase). Locations stay on-device.',
+            'Location sync skipped until EXPO_PUBLIC_SUPABASE_ANON_KEY is set in .env. Locations stay on-device.',
           );
         }
-      }
-      await this.syncFiles();
-      this.retryAttempt = 0;
-      if (backendReady) {
-        try {
-          await setSettings([
-            { key: SETTING_KEYS.lastSyncAt, value: new Date().toISOString() },
-            { key: SETTING_KEYS.lastApiError, value: '' },
-          ]);
-        } catch {
-          // ignore DB contention after a successful upload
-        }
-        logger.info('sync success');
+        await this.syncFiles();
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -131,9 +137,9 @@ export class SyncService {
     }
   }
 
-  async syncLocations(): Promise<void> {
+  async syncLocations(): Promise<number> {
     if (!(await isBackendUrlConfigured())) {
-      return;
+      return 0;
     }
     if (!(await isOnline())) {
       throw new AppError('network_unavailable', 'Network disappeared during location sync.');
@@ -170,15 +176,20 @@ export class SyncService {
       await LocationRepository.markUploaded(confirmed);
       if (rejected.length > 0) {
         logger.warn('Backend did not accept some location IDs; leaving them pending', rejected.length);
+        await LocationRepository.markFailed(rejected);
       }
       processed += confirmed.length;
 
       if (confirmed.length === 0) {
-        break;
+        throw new AppError(
+          'backend_unavailable',
+          'Backend accepted 0 locations — will retry. Check Edge Function logs.',
+        );
       }
     }
 
     logger.info('location sync processed', String(processed));
+    return processed;
   }
 
   async syncFiles(): Promise<void> {
@@ -190,7 +201,7 @@ export class SyncService {
 
   private scheduleRetry(): void {
     if (this.retryAttempt >= this.maxRetries) {
-      logger.warn('Max sync retries reached. Waiting for the next network event or manual sync.');
+      logger.warn('Max sync retries reached. Waiting for the next GPS/network event or manual sync.');
       this.retryAttempt = 0;
       return;
     }

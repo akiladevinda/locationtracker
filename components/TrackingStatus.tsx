@@ -22,9 +22,9 @@ export function TrackingStatus({ enabled, backgroundOk = true }: Props) {
       <Text style={styles.hint}>
         {enabled
           ? backgroundOk
-            ? 'GPS keeps running with the screen off. Pending points upload about every 30 seconds when online.'
+            ? 'Keeps running in the background with the notification. Uploads to cloud about every 1 minute while online.'
             : 'Allow “all the time” location so tracking continues when the app is closed.'
-          : 'Tap Start to collect GPS in the background and upload every 30 seconds.'}
+          : 'Tap Start to collect GPS in the background and upload every 1 minute.'}
       </Text>
     </View>
   );

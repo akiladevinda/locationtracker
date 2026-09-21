@@ -24,7 +24,8 @@ try {
     try {
       const { persistLocationsFromTask } = await import('@/services/location/locationService');
       await persistLocationsFromTask(locations);
-      // Upload pending points while the background service is alive (throttled to ~30s).
+
+      // Background upload path: FGS keeps this task alive; sync at most once/minute.
       try {
         const { syncService } = await import('@/services/sync/syncService');
         await syncService.syncIfDue();

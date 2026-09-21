@@ -154,7 +154,7 @@ export default function SettingsScreen() {
           keyboardType="number-pad"
         />
         <Text style={styles.hint}>
-          GPS every ~10s. Uploads automatically every 30 seconds while online.
+          GPS every ~10s. Uploads automatically every 1 minute while online (also from background GPS).
         </Text>
         <PrimaryButton label="Save" onPress={() => void saveSettings()} />
         <PrimaryButton label="Sync now" onPress={() => void sync.syncNow()} loading={sync.busy} />
